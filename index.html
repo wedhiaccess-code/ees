@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XLSMART Event & Presentation Timer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        xlnavy: '#0A1128',
+                        xldark: '#030712',
+                        xlblue: '#0052FF',
+                        xlcyan: '#00D2FF',
+                        xlmagenta: '#E6007E',
+                        xlcard: '#101B3B'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .timer-text { font-variant-numeric: tabular-nums; }
+        .gradient-brand {
+            background: linear-gradient(135deg, #0052FF 0%, #00D2FF 50%, #E6007E 100%);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #00D2FF 0%, #FFFFFF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-xldark text-gray-100 font-sans min-h-screen flex flex-col selection:bg-xlmagenta selection:text-white">
+
+    <!-- HEADER BRANDING -->
+    <header class="border-b border-gray-800 bg-xlnavy/80 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-8 w-2 rounded-full gradient-brand"></div>
+                <span class="text-2xl font-black tracking-wider text-white">XLSMART</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-xlcyan border border-blue-800 font-mono uppercase tracking-widest">Presenter System</span>
+            </div>
+            <div id="live-clock" class="font-mono text-sm text-gray-400">00:00:00 WIB</div>
+        </div>
+    </header>
+
+    <!-- HALAMAN JADWAL & PENGATURAN -->
+    <main id="schedule-view" class="max-w-6xl w-full mx-auto p-6 my-6 flex-1 transition-all duration-500">
+        
+        <!-- TOP CONTROL CARD -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-xlnavy border border-gray-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+                <label for="start-time" class="text-xs uppercase font-bold text-xlcyan tracking-wider mb-2 block">Jam Mulai Acara</label>
+                <div class="flex items-center gap-3">
+                    <input type="time" id="start-time" value="08:30" onchange="renderTable()" class="bg-xldark border border-gray-700 text-white text-2xl font-mono rounded-xl px-4 py-2 w-full focus:border-xlcyan focus:outline-none">
+                </div>
+            </div>
+
+            <div class="bg-xlnavy border border-gray-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+                <span class="text-xs uppercase font-bold text-gray-400 tracking-wider mb-2 block">Ringkasan Sesi</span>
+                <div class="flex justify-between items-baseline">
+                    <span class="text-3xl font-extrabold text-white" id="summary-count">8 Agenda</span>
+                    <span class="text-xl font-mono text-xlcyan" id="summary-duration">180 Menit</span>
+                </div>
+            </div>
+
+            <div class="bg-xlnavy border border-gray-800 p-5 rounded-2xl shadow-xl flex items-center justify-center">
+                <button onclick="startPresentation()" class="w-full h-full gradient-brand hover:opacity-90 text-white font-bold text-lg py-4 px-6 rounded-xl shadow-lg transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    Mulai Sesi Presentasi
+                </button>
+            </div>
+        </div>
+
+        <!-- TABEL AGENDA -->
+        <div class="bg-xlnavy border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-xlmagenta"></span> Susunan Agenda & Waktu
+                </h2>
+                <button onclick="addAgenda()" class="text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-xlcyan border border-gray-700 px-3 py-2 rounded-lg transition flex items-center gap-1">
+                    + Tambah Sesi
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-xldark/60 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
+                            <th class="py-4 px-4 text-center w-20">Urutan</th>
+                            <th class="py-4 px-6">Nama Agenda</th>
+                            <th class="py-4 px-4 w-36">Durasi (Mnt)</th>
+                            <th class="py-4 px-6 text-center w-48">Estimasi Jam</th>
+                            <th class="py-4 px-4 text-center w-20">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body" class="divide-y divide-gray-800/60 text-sm">
+                        <!-- Render via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- HALAMAN TIMER FULLSCREEN -->
+    <div id="timer-view" class="hidden fixed inset-0 bg-xldark text-white flex flex-col justify-between p-8 z-50 transition-all duration-500">
+        
+        <!-- Header Mode Presentasi -->
+        <div class="flex justify-between items-center max-w-6xl mx-auto w-full border-b border-gray-800 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="h-6 w-2 rounded-full gradient-brand"></div>
+                <span class="text-xl font-bold tracking-wider">XLSMART LIVE</span>
+            </div>
+            <div id="presentation-status" class="text-xs font-mono px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/30 uppercase tracking-widest animate-pulse">
+                • On Air
+            </div>
+        </div>
+
+        <!-- Konten Utama Timer -->
+        <div class="max-w-5xl w-full mx-auto text-center my-auto py-6">
+            <p id="current-agenda-time" class="text-xl md:text-2xl font-mono text-xlcyan mb-2">08:30 - 08:40</p>
+            <h1 id="current-agenda-title" class="text-4xl md:text-6xl font-black text-white mb-6 gradient-text">Nama Agenda</h1>
+            
+            <!-- Display Hitung Mundur -->
+            <div id="countdown-display" class="text-[9rem] md:text-[14rem] font-extrabold leading-none timer-text tracking-tight mb-6 drop-shadow-[0_10px_35px_rgba(0,82,255,0.3)]">
+                00:00
+            </div>
+
+            <!-- Progress Bar Korporat -->
+            <div class="w-full bg-gray-900 border border-gray-800 h-4 rounded-full mb-10 overflow-hidden p-0.5">
+                <div id="progress-bar" class="gradient-brand h-full rounded-full transition-all duration-1000 w-full"></div>
+            </div>
+
+            <!-- Tombol Kontrol Timer -->
+            <div class="flex flex-wrap justify-center items-center gap-3 mb-8">
+                <button onclick="adjustTime(-60)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-3 px-5 rounded-xl border border-gray-700 transition">-1 Mnt</button>
+                <button onclick="adjustTime(60)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold py-3 px-5 rounded-xl border border-gray-700 transition">+1 Mnt</button>
+                
+                <button onclick="togglePause()" id="pause-btn" class="bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold py-3 px-8 rounded-xl transition shadow-lg flex items-center gap-2">
+                    ⏸ Jeda
+                </button>
+                
+                <button onclick="nextAgenda()" id="next-btn" class="bg-xlblue hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg flex items-center gap-2">
+                    ⏭ Agenda Selanjutnya
+                </button>
+                
+                <button onclick="stopPresentation()" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/30 font-semibold py-3 px-6 rounded-xl transition">
+                    ⏹ Keluar
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer Preview Agenda Selanjutnya -->
+        <div class="max-w-6xl mx-auto w-full bg-xlnavy/60 border border-gray-800 rounded-xl p-4 flex justify-between items-center backdrop-blur">
+            <span class="text-xs uppercase font-bold text-gray-500 tracking-wider">Berikutnya</span>
+            <span id="next-agenda-title" class="text-base font-semibold text-gray-200">-</span>
+        </div>
+    </div>
+
+    <script>
+        // Data Default Agenda (XLSMART Event Format)
+        let agendas = [
+            { title: "MC Open Event", duration: 10 },
+            { title: "SVP FRAME Speech", duration: 20 },
+            { title: "Grouping", duration: 10 },
+            { title: "Group Discussion", duration: 40 },
+            { title: "Presentation", duration: 50 },
+            { title: "QA", duration: 20 },
+            { title: "Investation Time", duration: 20 },
+            { title: "Investation Score", duration: 10 }
+        ];
+
+        // Jam Realtime di Header
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID') + " WIB";
+        }, 1000);
+
+        // Render Tabel Pengaturan Agenda
+        function renderTable() {
+            const tbody = document.getElementById('schedule-body');
+            tbody.innerHTML = '';
+
+            let startTimeVal = document.getElementById('start-time').value || "08:30";
+            let [hours, minutes] = startTimeVal.split(':').map(Number);
+            let currentTotalMin = hours * 60 + minutes;
+            let sumDuration = 0;
+
+            agendas.forEach((item, index) => {
+                let startH = String(Math.floor(currentTotalMin / 60) % 24).padStart(2, '0');
+                let startM = String(currentTotalMin % 60).padStart(2, '0');
+                
+                currentTotalMin += Number(item.duration);
+                sumDuration += Number(item.duration);
+
+                let endH = String(Math.floor(currentTotalMin / 60) % 24).padStart(2, '0');
+                let endM = String(currentTotalMin % 60).padStart(2, '0');
+
+                item.startTimeStr = `${startH}:${startM}`;
+                item.endTimeStr = `${endH}:${endM}`;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-800/30 transition border-b border-gray-800/40";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="moveUp(${index})" ${index === 0 ? 'disabled class="opacity-20 cursor-not-allowed"' : 'class="hover:text-xlcyan p-1"'}>▲</button>
+                            <button onclick="moveDown(${index})" ${index === agendas.length - 1 ? 'disabled class="opacity-20 cursor-not-allowed"' : 'class="hover:text-xlcyan p-1"'}>▼</button>
+                        </div>
+                    </td>
+                    <td class="py-3 px-6">
+                        <input type="text" value="${item.title}" onchange="updateAgendaTitle(${index}, this.value)" class="w-full bg-transparent border-b border-transparent focus:border-xlcyan focus:bg-xldark px-2 py-1 font-medium text-white rounded outline-none transition">
+                    </td>
+                    <td class="py-3 px-4">
+                        <input type="number" min="1" value="${item.duration}" onchange="updateAgendaDuration(${index}, this.value)" class="w-20 bg-xldark border border-gray-700 rounded-lg px-2 py-1 font-mono font-semibold text-xlcyan text-center focus:border-xlcyan outline-none">
+                    </td>
+                    <td class="py-3 px-6 text-center font-mono text-gray-400">
+                        ${item.startTimeStr} - ${item.endTimeStr}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="removeAgenda(${index})" class="text-red-400 hover:text-red-300 hover:bg-red-950/40 p-1.5 rounded-lg transition">✕</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('summary-count').innerText = `${agendas.length} Agenda`;
+            document.getElementById('summary-duration').innerText = `${sumDuration} Menit`;
+        }
+
+        // Fungsi Tukar Urutan Baris (Reorder)
+        function moveUp(index) {
+            if (index > 0) {
+                const temp = agendas[index];
+                agendas[index] = agendas[index - 1];
+                agendas[index - 1] = temp;
+                renderTable();
+            }
+        }
+
+        function moveDown(index) {
+            if (index < agendas.length - 1) {
+                const temp = agendas[index];
+                agendas[index] = agendas[index + 1];
+                agendas[index + 1] = temp;
+                renderTable();
+            }
+        }
+
+        function updateAgendaTitle(index, val) {
+            agendas[index].title = val;
+        }
+
+        function updateAgendaDuration(index, val) {
+            agendas[index].duration = Math.max(1, parseInt(val) || 1);
+            renderTable();
+        }
+
+        function addAgenda() {
+            agendas.push({ title: "Agenda Baru", duration: 15 });
+            renderTable();
+        }
+
+        function removeAgenda(index) {
+            if (agendas.length <= 1) {
+                alert("Minimal harus terdapat 1 agenda!");
+                return;
+            }
+            agendas.splice(index, 1);
+            renderTable();
+        }
+
+        // Init Tabel Pertama Kali
+        renderTable();
+
+        // LOGIKA TIMER
+        let currentIndex = 0;
+        let timeLeft = 0;
+        let totalTimeForCurrent = 0;
+        let timerInterval;
+        let isPaused = false;
+
+        function startPresentation() {
+            document.getElementById('schedule-view').classList.add('hidden');
+            document.getElementById('timer-view').classList.remove('hidden');
+            currentIndex = 0;
+            loadAgenda(currentIndex);
+        }
+
+        function loadAgenda(index) {
+            if (index >= agendas.length) {
+                stopPresentation();
+                alert("Seluruh sesi acara telah selesai!");
+                return;
+            }
+
+            const agenda = agendas[index];
+            document.getElementById('current-agenda-title').innerText = agenda.title;
+            document.getElementById('current-agenda-time').innerText = `${agenda.startTimeStr} - ${agenda.endTimeStr} (${agenda.duration} Menit)`;
+            
+            if (index + 1 < agendas.length) {
+                document.getElementById('next-agenda-title').innerText = agendas[index + 1].title;
+            } else {
+                document.getElementById('next-agenda-title').innerText = "Selesai";
+                document.getElementById('next-btn').innerText = "Selesaikan Sesi";
+            }
+
+            totalTimeForCurrent = agenda.duration * 60;
+            timeLeft = totalTimeForCurrent;
+            isPaused = false;
+            document.getElementById('pause-btn').innerText = "⏸ Jeda";
+            
+            updateDisplay();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        function tick() {
+            if (!isPaused) {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    document.getElementById('countdown-display').classList.add('text-red-500', 'animate-pulse');
+                }
+            }
+        }
+
+        function adjustTime(seconds) {
+            timeLeft = Math.max(0, timeLeft + seconds);
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const display = document.getElementById('countdown-display');
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            
+            display.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            const progress = document.getElementById('progress-bar');
+            const percentage = totalTimeForCurrent > 0 ? (timeLeft / totalTimeForCurrent) * 100 : 0;
+            progress.style.width = `${percentage}%`;
+
+            if (timeLeft <= 60 && timeLeft > 0) {
+                display.className = "text-[9rem] md:text-[14rem] font-extrabold leading-none timer-text tracking-tight mb-6 text-yellow-400 drop-shadow-[0_10px_35px_rgba(250,204,21,0.3)]";
+            } else if (timeLeft === 0) {
+                display.className = "text-[9rem] md:text-[14rem] font-extrabold leading-none timer-text tracking-tight mb-6 text-red-500 animate-pulse drop-shadow-[0_10px_35px_rgba(239,68,68,0.4)]";
+            } else {
+                display.className = "text-[9rem] md:text-[14rem] font-extrabold leading-none timer-text tracking-tight mb-6 text-white drop-shadow-[0_10px_35px_rgba(0,82,255,0.3)]";
+            }
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('pause-btn');
+            if (isPaused) {
+                pauseBtn.innerText = "▶ Lanjutkan";
+                pauseBtn.classList.replace('bg-yellow-500', 'bg-blue-600');
+                pauseBtn.classList.replace('hover:bg-yellow-400', 'hover:bg-blue-500');
+                pauseBtn.classList.replace('text-gray-950', 'text-white');
+            } else {
+                pauseBtn.innerText = "⏸ Jeda";
+                pauseBtn.classList.replace('bg-blue-600', 'bg-yellow-500');
+                pauseBtn.classList.replace('hover:bg-blue-500', 'hover:bg-yellow-400');
+                pauseBtn.classList.replace('text-white', 'text-gray-950');
+            }
+        }
+
+        function nextAgenda() {
+            clearInterval(timerInterval);
+            currentIndex++;
+            loadAgenda(currentIndex);
+        }
+
+        function stopPresentation() {
+            clearInterval(timerInterval);
+            document.getElementById('timer-view').classList.add('hidden');
+            document.getElementById('schedule-view').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
